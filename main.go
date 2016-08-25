@@ -11,6 +11,7 @@ import (
   "os/user"
   "path/filepath"
   "time"
+  "regexp"
 
   "golang.org/x/net/context"
   "golang.org/x/oauth2"
@@ -19,7 +20,7 @@ import (
   googleOAuth2 "google.golang.org/api/oauth2/v2"
   "github.com/jinzhu/now"
   "github.com/urfave/cli"
-  //"github.com/davecgh/go-spew/spew"
+  // "github.com/davecgh/go-spew/spew"
 
   "github.com/ashmckenzie/my_week/secrets"
 )
@@ -109,17 +110,30 @@ func timeIntoSeconds(x string) (int) {
   return int(t.Unix())
 }
 
-func iAccepted(x *calendar.Event) (bool) {
-  if (x.Creator.Email == me.Email && x.Transparency != "transparent") { return true }
+func iAccepted(e *calendar.Event) (bool) {
+  if (e.Creator.Email == me.Email && e.Transparency != "transparent") { return true }
 
-  for _, i := range x.Attendees {
+  for _, i := range e.Attendees {
     if (i.Email == me.Email && i.ResponseStatus == "accepted") { return true }
   }
 
   return false
 }
 
-func generateReport() {
+func shouldIgnore(e *calendar.Event, ignore []string) (bool) {
+  for _, i := range ignore {
+    pattern := fmt.Sprintf("(?i)%s", i)
+    match, _ := regexp.MatchString(pattern, e.Summary)
+    if match {
+      fmt.Println("> Ignoring ", e.Summary)
+      return true
+    }
+  }
+
+  return false
+}
+
+func generateReport(ignore []string) {
   ctx := context.Background()
 
   config, err := google.ConfigFromJSON([]byte(appSecrets.ClientJSON), calendar.CalendarReadonlyScope, googleOAuth2.UserinfoEmailScope)
@@ -154,6 +168,7 @@ func generateReport() {
 
     for _, i := range events.Items {
       if (i.End.DateTime == "" || i.Start.DateTime == "" || !iAccepted(i)) { continue }
+      if (shouldIgnore(i, ignore)) { continue }
 
       startTimeDuration := timeIntoSeconds(i.Start.DateTime)
       endTimeDuration := timeIntoSeconds(i.End.DateTime)
@@ -181,8 +196,16 @@ func main() {
   app.Usage = "My week, using Google Calendar"
   app.Version = secrets.VERSION
 
+  app.Flags = []cli.Flag {
+    cli.StringSliceFlag{
+      Name: "ignore",
+      Usage: "ignore events based on title",
+      EnvVar: "IGNORE",
+    },
+  }
+
   app.Action = func(c *cli.Context) error {
-    generateReport()
+    generateReport(c.StringSlice("ignore"))
     return nil
   }
 
