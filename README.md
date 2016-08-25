@@ -26,7 +26,7 @@ By default, the following affects which meetings will be shown.  Only meetings t
 
 * you have accepted
 * have a start and end time
-* that are > 0 minutes
+* have a duration greater than 0 minutes
 
 If you wish to filter out some meetings from being printed, you can use the `--ignore` parameter.  This will perform a regex match against the event summary.  You can specific multiple `--ignore` parameters.
 
