@@ -1,0 +1,4 @@
+.envrc
+bin/*
+secrets/appsecrets.go
+secrets/client_secret.json
